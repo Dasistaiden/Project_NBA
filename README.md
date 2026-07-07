@@ -1,5 +1,7 @@
 # NBA Fantasy Draft Simulator
 
+English | [繁體中文](README.zh-TW.md)
+
 A draft-day decision tool for Yahoo Fantasy NBA: pulls league-wide player stats via `nba_api`, computes customizable Fantasy Points, and serves a multi-page Streamlit board — position rankings, side-by-side player comparison, an auction-draft optimizer (integer linear programming), and a player encyclopedia.
 
 ## Why
@@ -39,6 +41,20 @@ Season, weights, position mapping, and auction settings live in `config/config.y
 ```
 
 10 tests covering scoring math (missing columns, NaN handling), upsert idempotency, position mapping, and the optimizer's budget/slot constraints including infeasible cases. The `nba_api` fetcher is validated by live spot-checks instead of mocks.
+
+## Known limitations
+
+- Player positions are mapped from official NBA roster designations (G/F/C), which can differ from Yahoo's actual eligibility (e.g. Dončić maps to SG/SF vs Yahoo's PG/SG)
+- 57 players who left their teams mid-season have no position mapping and are shown as `?`
+- Injury status and media takes are manually maintained notes, not auto-scraped
+
+## Roadmap (next updates)
+
+- **Phase 2 — Health & role**: injury-risk index from three seasons of games-played history; refine role labels with starts/usage rate
+- **Phase 3 — Rookies & intangibles**: NCAA-to-NBA production estimates for rookies; qualitative rating fields
+- **Phase 4 — Draft-day assistant**: mark drafted players, live best-available suggestions, interactive auction simulation
+
+See [02_planning.md](02_planning.md) for details.
 
 ## Design docs
 
