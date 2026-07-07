@@ -1,0 +1,42 @@
+season: "2025-26"
+history_seasons: ["2024-25", "2023-24"]   # 回補的歷史賽季（百科年度數據、未來健康度分析用）
+db_path: "data/nba.db"
+min_games_default: 20
+api_delay_seconds: 0.6
+
+# Yahoo Points League 預設權重（03_requirements FR-4.2）
+# key 必須是 player_stats 的欄位名，任何數值欄位都可加入
+weights:
+  pts: 1.0
+  reb: 1.2
+  ast: 1.5
+  stl: 3.0
+  blk: 3.0
+  tov: -1.0
+
+# $200 拍賣制模擬選秀（Yahoo 預設 12 隊、13 人陣容）
+auction:
+  budget: 200
+  league_teams: 12
+  roster_slots: [PG, SG, G, SF, PF, F, C, C, UTIL, UTIL, BN, BN, BN]
+
+slot_eligibility:
+  PG: [PG]
+  SG: [SG]
+  G: [PG, SG]
+  SF: [SF]
+  PF: [PF]
+  F: [SF, PF]
+  C: [C]
+  UTIL: [PG, SG, SF, PF, C]
+  BN: [PG, SG, SF, PF, C]
+
+# NBA 官方位置 -> 五大位置（03_requirements FR-1.3）
+position_mapping:
+  "G": [PG, SG]
+  "F": [SF, PF]
+  "C": [C]
+  "G-F": [SG, SF]
+  "F-G": [SG, SF]
+  "F-C": [PF, C]
+  "C-F": [PF, C]

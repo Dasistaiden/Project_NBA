@@ -1,0 +1,6 @@
+nba_api
+pandas
+streamlit
+pyyaml
+pulp
+pytest
