@@ -9,12 +9,20 @@ import pandas as pd
 import pulp
 
 
-def estimate_prices(fp: pd.Series, budget: int, teams: int, roster_size: int) -> pd.Series:
-    """由 Fantasy Point 推算每名球員的合理拍賣標價（整數，最低 $1）。"""
+def estimate_prices(
+    fp: pd.Series, budget: int, teams: int, roster_size: int,
+    star_premium: float = 1.0,
+) -> pd.Series:
+    """由 Fantasy Point 推算每名球員的合理拍賣標價（整數，最低 $1）。
+
+    star_premium > 1 時價值以冪次放大後再分配預算池，模擬真實拍賣中
+    「搶頂級球員不惜溢價、中後段球員被壓到 $1」的市場行為；
+    1.0 = 純線性 value-over-replacement。總預算池不變，只改變分配曲線。
+    """
     n_rostered = teams * roster_size
     ranked = fp.sort_values(ascending=False)
     replacement = ranked.iloc[n_rostered] if len(ranked) > n_rostered else ranked.min()
-    value = (fp - replacement).clip(lower=0)
+    value = (fp - replacement).clip(lower=0) ** star_premium
     pool = budget * teams - n_rostered  # 每個名單位保底 $1，剩餘依價值分配
     total_value = value.sum()
     if total_value <= 0:

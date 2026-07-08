@@ -10,13 +10,17 @@ st.set_page_config(page_title="模擬選秀", layout="wide")
 cfg = load_config()
 common.require_data(cfg)
 
-board = common.load_board(cfg["season"])
+board, source_label = common.select_board(cfg)
 weights = common.sidebar_weights(cfg)
 min_gp = common.sidebar_min_gp(cfg)
 
 st.sidebar.header("拍賣設定")
 budget = st.sidebar.number_input("我的總預算 ($)", 50, 500, cfg["auction"]["budget"])
 teams = st.sidebar.number_input("聯盟隊伍數", 8, 20, cfg["auction"]["league_teams"])
+star_premium = st.sidebar.slider(
+    "巨星溢價", 1.0, 2.5, float(cfg["auction"]["star_premium"]), 0.1,
+    help="模擬真實市場：越高則頂級球員越貴、中後段越接近 $1。1.0 = 純線性估價",
+)
 
 slots = cfg["auction"]["roster_slots"]
 
@@ -24,13 +28,14 @@ slots = cfg["auction"]["roster_slots"]
 pool = board[(board["gp"] >= min_gp) & (board["positions"] != "")].copy()
 pool["fantasy_point"] = compute_fantasy_points(pool, weights)
 pool["price"] = estimate_prices(
-    pool["fantasy_point"], cfg["auction"]["budget"], teams, len(slots)
+    pool["fantasy_point"], cfg["auction"]["budget"], teams, len(slots), star_premium
 )
 
-st.title(f"模擬選秀 — $200 拍賣制（{len(slots)} 人陣容）")
+st.title(f"模擬選秀 — $200 拍賣制（{len(slots)} 人陣容，依 {source_label}）")
 st.caption(
-    "標價由 Fantasy Point 以 value-over-replacement 法推算，反映球員在"
-    f"{teams} 隊聯盟中的合理市場價；優化器在預算內求總 Fantasy Point 最大的可行陣容。"
+    "標價由 Fantasy Point 以 value-over-replacement 法推算，並以「巨星溢價」"
+    "貼近真實拍賣的價格曲線；優化器在預算內求總 Fantasy Point 最大的可行陣容。"
+    "同樣的權重與設定下，結果是固定的（精確解）；結果改變代表某個設定變了。"
 )
 
 if st.button("計算最佳陣容", type="primary"):

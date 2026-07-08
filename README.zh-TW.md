@@ -10,9 +10,10 @@
 
 ## 目前功能
 
-- **資料管線**（`src/update_data.py`）— 全聯盟約 580 名球員的場均數據與名單/位置資料，含 API 節流與逐隊重試；回補 2023-24、2024-25 兩個歷史賽季供趨勢參考。以冪等 upsert 寫入 SQLite，重跑不會重複。
+- **資料管線**（`src/update_data.py`）— 全聯盟約 580 名球員的場均數據與名單/位置資料，含 API 節流與逐隊重試；`src/backfill_history.py` 回補 2005-06 起 21 季（約 10,600 筆）作為訓練資料。以冪等 upsert 寫入 SQLite，重跑不會重複。
 - **自訂 Fantasy Point**（`src/scoring.py`）— 各項數據權重（PTS/REB/AST/STL/BLK/TOV/命中率）附合理預設值（Yahoo Points League：PTS 1 / REB 1.2 / AST 1.5 / STL 3 / BLK 3 / TOV -1），可在側欄即時調整以符合你的聯盟計分規則。
-- **拍賣優化器**（`src/auction.py`）— 以 value-over-replacement 法估算 $200 預算下每名球員的合理標價，並用整數規劃（PuLP/CBC）在預算與位置格位限制下求出最佳 13 人陣容（一秒內解出）。
+- **拍賣優化器**（`src/auction.py`）— 以 value-over-replacement 法估算 $200 預算下每名球員的合理標價（附可調的巨星溢價曲線），並用整數規劃（PuLP/CBC）在預算與位置格位限制下求出最佳 13 人陣容（一秒內解出）。
+- **下一季預測**（`src/projection.py`）— Marcel 基準模型 + 每項數據一個梯度提升樹，以 2005-06 起 21 季資料訓練，經留出賽季回測驗證（ML 在誤差與排名相關性皆勝出）。看板與模擬選秀可切換「上季實際 / 2026-27 預測」排名依據。
 - **Streamlit 介面**（`app/`）：
   1. 選秀看板 — PG/SG/SF/PF/C 五大位置排名，附上季場均數據佐證
   2. 球員比較 — 2-4 名球員並排，逐項標示優劣（失誤反向計）
@@ -40,7 +41,7 @@ python -m venv .venv
 .venv\Scripts\python.exe -m pytest tests/ -v
 ```
 
-10 個測試涵蓋計分邏輯（缺欄位、NaN 處理）、upsert 冪等性、位置對映，以及優化器的預算/格位約束與無解情境。`nba_api` 抓取層以實跑抽查驗證，不做 mock。
+15 個測試涵蓋計分邏輯（缺欄位、NaN 處理）、upsert 冪等性、位置對映、優化器的預算/格位約束與無解情境，以及預測模組（Marcel 回歸方向、換隊特徵、ML 煙霧測試）。`nba_api` 抓取層以實跑抽查驗證；預測準確度以留出賽季回測驗證（`src/run_projection.py` 會印出報告）。
 
 ## 已知限制
 

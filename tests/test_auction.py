@@ -9,6 +9,15 @@ ELIGIBILITY = {
 }
 
 
+def test_star_premium_steepens_price_curve():
+    fp = pd.Series([50, 45, 40, 35, 30, 25, 20, 15, 10, 5])
+    linear = estimate_prices(fp, budget=100, teams=4, roster_size=2)
+    steep = estimate_prices(fp, budget=100, teams=4, roster_size=2, star_premium=2.0)
+    assert steep.iloc[0] > linear.iloc[0]      # 頂級球員更貴
+    assert steep.iloc[4] <= linear.iloc[4]     # 中段被壓低
+    assert (steep >= 1).all()
+
+
 def test_prices_replacement_level_is_one_dollar():
     # 4 隊 × 2 人 = 8 個名單位；第 9 名以後應為 $1
     fp = pd.Series([50, 45, 40, 35, 30, 25, 20, 15, 10, 5])

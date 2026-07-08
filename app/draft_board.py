@@ -9,7 +9,7 @@ st.set_page_config(page_title="NBA Fantasy 選秀看板", layout="wide")
 cfg = load_config()
 common.require_data(cfg)
 
-board = common.load_board(cfg["season"])
+board, source_label = common.select_board(cfg)
 weights = common.sidebar_weights(cfg)
 min_gp = common.sidebar_min_gp(cfg)
 
@@ -18,11 +18,13 @@ board["fantasy_point"] = compute_fantasy_points(board, weights)
 board["positions"] = board["positions"].replace("", "?")
 
 DISPLAY_COLS = [
-    "name", "team", "positions", "fantasy_point", "gp", "min",
-    "pts", "reb", "ast", "stl", "blk", "tov", "fg_pct", "fg3m", "ft_pct",
+    c for c in [
+        "name", "team", "positions", "fantasy_point", "gp", "min",
+        "pts", "reb", "ast", "stl", "blk", "tov", "fg_pct", "fg3m", "ft_pct",
+    ] if c in board.columns
 ]
 
-st.title(f"NBA Fantasy 選秀看板 — {cfg['season']}")
+st.title(f"NBA Fantasy 選秀看板 — {source_label}")
 
 tabs = st.tabs(["全部"] + common.POSITIONS)
 for tab, pos in zip(tabs, [None] + common.POSITIONS):

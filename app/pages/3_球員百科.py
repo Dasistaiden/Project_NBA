@@ -1,4 +1,6 @@
 """球員百科：照片、歷年數據、球隊定位、人工備註（狀況/媒體評價）。"""
+from urllib.parse import quote_plus
+
 import yaml
 import streamlit as st
 
@@ -79,6 +81,12 @@ if note:
         st.markdown(f"**媒體評價：** {note['media']}")
 else:
     st.info(
-        "此球員尚無備註。編輯 `config/player_notes.yaml` 加入 "
-        f'`"{name}":` 的 status / media 欄位即可在此顯示。'
+        "此球員尚無人工備註（編輯 `config/player_notes.yaml` 加入 "
+        f'`"{name}":` 的 status / media 欄位即可顯示）。'
     )
+
+news_q = quote_plus(f'"{name}" NBA')
+st.markdown(
+    f"最新消息：[Google 新聞搜尋](https://news.google.com/search?q={news_q}) ｜ "
+    f"[RotoWire 傷病動態](https://www.rotowire.com/basketball/injury-report.php)"
+)
