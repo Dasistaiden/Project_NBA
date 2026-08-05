@@ -1,10 +1,12 @@
 # Yahoo NBA Fantasy 選秀模擬器 — Phase 1 流程與執行紀錄
 
-> 依 [03_requirements.md](03_requirements.md) 與 [04_architecture.md](04_architecture.md) 實作，本文件記錄「怎麼跑」與「跑過一次的結果」。
+> 依 [03_requirements.md](Project_NBA/docs/03_requirements.md) 與 [04_architecture.md](Project_NBA/docs/04_architecture.md) 實作，本文件記錄「怎麼跑」與「跑過一次的結果」。
 
 ## 1. 與架構文件的差異
 
 無重大偏離。一處補充：球員姓名含變音符號（如 `Nikola Jokić`），Windows 主控台預設 cp950 編碼會印不出來 — 查詢腳本若要在終端印出球員名，需設 `PYTHONIOENCODING=utf-8`。資料庫內儲存正確，Streamlit 顯示不受影響。
+
+**Phase 2 差異記錄（2026-07-13）**：02 規劃的 M2.1/M2.3 原想用「先發場次（GS）」判斷先發/替補，但 stats.nba.com 的全聯盟 endpoint（`LeagueDashPlayerStats`，含 Advanced 模式）都不提供 GS——取得 GS 需逐球員呼叫 `PlayerCareerStats` 500+ 次，成本不成比例。改用 **MIN（上場時間）+ USG%（使用率）** 作角色 proxy：MIN ≥ 25 視為先發層級、USG ≥ 27 視為進攻核心、USG < 16 視為功能型角色。USG%/TS% 由同一個 endpoint 的 `measure_type_detailed_defense="Advanced"` 取得，每季只多一次 API 呼叫。另一已知限制：健康分數無法區分「整季報銷 0 出賽」與「還沒進聯盟」（兩者在 player_stats 都是該季無列），前者的風險會被低估。
 
 ---
 

@@ -79,6 +79,24 @@ def load_stats_history() -> pd.DataFrame:
     )
 
 
+@st.cache_data
+def load_phase2() -> pd.DataFrame:
+    """Phase 2 因子：健康分數/風險 + 角色標籤，以 player_id 為欄位供 merge。
+
+    健康度以「下一季」為目標（買的是明年的出勤）；角色以當季數據推導。
+    """
+    from factors import health_scores, role_label  # src 已在 sys.path
+
+    cfg = load_config()
+    history = load_stats_history()
+    health = health_scores(history, _next_season(cfg["season"]))
+    current = history[history["season"] == cfg["season"]].set_index("player_id")
+    roles = current.apply(role_label, axis=1).rename("role")
+    out = health.join(roles, how="outer")
+    out.index.name = "player_id"
+    return out[["health_score", "risk", "role"]].reset_index()
+
+
 def sidebar_weights(cfg: dict) -> dict:
     st.sidebar.header("權重設定")
     return {

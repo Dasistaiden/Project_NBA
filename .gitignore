@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 data/*.db
 .pytest_cache/
+
+# 個人筆記，不進公開 repo
+Review筆記.md
+學習提問.md

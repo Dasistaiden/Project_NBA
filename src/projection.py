@@ -17,6 +17,7 @@ from scoring import compute_fantasy_points
 PROJECT_STATS = ["pts", "reb", "ast", "stl", "blk", "tov", "min"]
 FEATURE_STATS = PROJECT_STATS + ["gp", "fg_pct", "ft_pct", "fg3m"]
 MARCEL_WEIGHTS = (5.0, 4.0, 3.0)
+GP_WEIGHTS = (0.5, 0.3, 0.2)   # 預測出賽數的近三季權重（健康持續性，Phase 2）
 REGRESS_GAMES = 30          # 向聯盟平均回歸的虛擬場次
 AGE_PEAK, AGE_SLOPE = 27.0, 0.004
 
@@ -40,6 +41,21 @@ def _league_mean(lags: list, stat: str) -> float:
     return float(np.average(d[stat].fillna(0), weights=d["gp"].clip(lower=1)))
 
 
+def _expected_gp(lags: list, idx: pd.Index) -> pd.Series:
+    """預測出賽數 = 近三季 gp 加權平均（缺季時權重重新正規化）。
+
+    Phase 2 的健康風險修正：常年缺席的球員預測 gp 會被拉低，
+    而非天真沿用上一季（可能剛好是他難得健康的一季）。
+    """
+    num = pd.Series(0.0, index=idx)
+    den = pd.Series(0.0, index=idx)
+    for w, lag in zip(GP_WEIGHTS, lags):
+        gp = lag["gp"].reindex(idx)
+        num += w * gp.fillna(0)
+        den += w * gp.notna()
+    return (num / den.clip(lower=GP_WEIGHTS[0])).round(0)
+
+
 def marcel(history: pd.DataFrame, target_season: str) -> pd.DataFrame:
     """回傳 index=player_id 的預測場均（PROJECT_STATS + gp）。"""
     lags = [_lag(history, target_season, n) for n in (1, 2, 3)]
@@ -56,7 +72,7 @@ def marcel(history: pd.DataFrame, target_season: str) -> pd.DataFrame:
     age_next = lags[0]["age"].reindex(idx) + 1
     adj = (1 + AGE_SLOPE * (AGE_PEAK - age_next)).clip(0.85, 1.15).fillna(1.0)
     proj[PROJECT_STATS] = proj[PROJECT_STATS].mul(adj, axis=0)
-    proj["gp"] = lags[0]["gp"]   # ponytail: 出賽數沿用上季，Phase 2 健康指數上線後改用風險修正值
+    proj["gp"] = _expected_gp(lags, idx)   # Phase 2：三季加權出賽數（健康風險修正）
     return proj.clip(lower=0).round(2)
 
 
@@ -102,7 +118,8 @@ def predict_ml(models: dict, history: pd.DataFrame, target_season: str) -> pd.Da
     proj = pd.DataFrame(
         {stat: m.predict(X) for stat, m in models.items()}, index=X.index
     )
-    proj["gp"] = _lag(history, target_season, 1)["gp"]
+    lags = [_lag(history, target_season, n) for n in (1, 2, 3)]
+    proj["gp"] = _expected_gp(lags, X.index)   # Phase 2：三季加權出賽數
     return proj.clip(lower=0).round(2)
 
 

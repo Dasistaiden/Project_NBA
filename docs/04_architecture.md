@@ -1,6 +1,6 @@
 # Yahoo NBA Fantasy 選秀模擬器 — Phase 1 系統架構設計
 
-> 承接 [03_requirements.md](03_requirements.md) 的功能需求，轉換為具體技術設計。**本文件是後續程式實作的核心依據**，模組、檔名、函式介面皆以此為準。
+> 承接 [03_requirements.md](Project_NBA/docs/03_requirements.md) 的功能需求，轉換為具體技術設計。**本文件是後續程式實作的核心依據**，模組、檔名、函式介面皆以此為準。
 
 ---
 

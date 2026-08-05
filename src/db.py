@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS player_stats (
     fgm REAL, fga REAL, fg_pct REAL,
     fg3m REAL, fg3a REAL, fg3_pct REAL,
     ftm REAL, fta REAL, ft_pct REAL,
+    usg_pct REAL,               -- 使用率（Phase 2 角色定位用）
+    ts_pct  REAL,               -- 真實命中率（Phase 2 角色定位用）
     updated_at  DATETIME NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (player_id, season)
 );
@@ -57,7 +59,8 @@ def get_connection(db_path: str) -> sqlite3.Connection:
     conn.executescript(DDL)
     # 舊資料庫遷移：補上後來新增的欄位
     existing = {row[1] for row in conn.execute("PRAGMA table_info(player_stats)")}
-    for col, typ in (("age", "REAL"), ("team", "TEXT")):
+    for col, typ in (("age", "REAL"), ("team", "TEXT"),
+                     ("usg_pct", "REAL"), ("ts_pct", "REAL")):
         if col not in existing:
             conn.execute(f"ALTER TABLE player_stats ADD COLUMN {col} {typ}")
     return conn
@@ -80,6 +83,25 @@ def upsert_stats(conn: sqlite3.Connection, df: pd.DataFrame, season: str) -> Non
     conn.executemany(
         f"INSERT OR REPLACE INTO player_stats ({','.join(cols)}) "
         f"VALUES ({','.join('?' * len(cols))})",
+        rows,
+    )
+    conn.commit()
+
+
+def update_advanced(conn: sqlite3.Connection, df: pd.DataFrame, season: str) -> None:
+    """把進階數據（usg_pct/ts_pct）補進既有的 player_stats 列。
+
+    用 UPDATE 而非 INSERT OR REPLACE：進階數據是「補欄位」，
+    必須先 upsert_stats 建好該季的列，才輪得到這裡。
+    """
+    rows = [
+        (usg, ts, pid, season)
+        for pid, usg, ts in df[["player_id", "usg_pct", "ts_pct"]]
+        .itertuples(index=False, name=None)
+    ]
+    conn.executemany(
+        "UPDATE player_stats SET usg_pct = ?, ts_pct = ? "
+        "WHERE player_id = ? AND season = ?",
         rows,
     )
     conn.commit()
@@ -120,7 +142,7 @@ def load_board(conn: sqlite3.Connection, season: str) -> pd.DataFrame:
         SELECT p.player_id, p.name, p.team, p.age, p.nba_position, p.positions,
                s.gp, s.min, s.pts, s.reb, s.ast, s.stl, s.blk, s.tov,
                s.fgm, s.fga, s.fg_pct, s.fg3m, s.fg3a, s.fg3_pct,
-               s.ftm, s.fta, s.ft_pct
+               s.ftm, s.fta, s.ft_pct, s.usg_pct, s.ts_pct
         FROM players p
         JOIN player_stats s ON p.player_id = s.player_id
         WHERE s.season = ?

@@ -8,11 +8,12 @@
 
 | 檔案 | 職責 | 對應文件 |
 |---|---|---|
-| `src/db.py` | SQLite 連線、schema、upsert、`load_board` JOIN 查詢 | [04](04_architecture.md) §3-4 |
+| `src/db.py` | SQLite 連線、schema、upsert、`load_board` JOIN 查詢 | [04](Project_NBA/docs/04_architecture.md) §3-4 |
 | `src/fetcher.py` | `nba_api` 封裝（場均數據、30 隊 roster、位置對映），含節流與單隊重試 | 04 §4, §7 |
 | `src/scoring.py` | Fantasy Point 加權計算 | 03 FR-4 |
 | `src/auction.py` | $200 拍賣估價（value-over-replacement + star_premium）與 ILP 陣容優化（pulp/CBC） | — |
-| `src/projection.py` | 下一季預測：Marcel 基準 + GBM（每項數據一個模型）+ 留出賽季回測 | — |
+| `src/projection.py` | 下一季預測：Marcel 基準 + GBM（每項數據一個模型）+ 留出賽季回測；gp 用三季加權 | — |
+| `src/factors.py` | Phase 2 數值外因素：健康分數/風險等級（近三季出勤率加權）+ 角色標籤（MIN/USG%/AST） | 02 M2.2-2.3 |
 | `src/run_projection.py` | 回測報告 + 產出下一季預測寫入 `projections` 表 | — |
 | `src/backfill_history.py` | 一次性回補 2005-06 起歷史賽季（ML 訓練資料） | — |
 | `src/update_data.py` | 全量更新主流程（唯一寫入進入點），含歷史賽季回補 | 04 §1 |
@@ -87,12 +88,12 @@ require_data(cfg)                            # DB 不存在則 st.stop
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | `player_id`, `season`, `model` | 複合 PK | season = 預測目標季（如 `2026-27`），model = `marcel` / `ml` |
-| `pts` `reb` `ast` `stl` `blk` `tov` `min` `gp` | REAL | 預測場均（gp 沿用上季，Phase 2 健康指數後改風險修正） |
+| `pts` `reb` `ast` `stl` `blk` `tov` `min` `gp` | REAL | 預測場均（gp = 近三季加權出賽數，Phase 2 風險修正） |
 
-### 資料快照（2026-07-08，非即時）
+### 資料快照（2026-07-13，非即時）
 
 - `players`：582 筆（525 筆有位置對映）
-- `player_stats`：21 季（2005-06 ～ 2025-26）共 10,595 筆
+- `player_stats`：21 季（2005-06 ～ 2025-26）共 10,595 筆；2023-24 起三季含 `usg_pct`/`ts_pct` 進階數據
 - `projections`：2026-27 × marcel 582 筆 + ml 582 筆
 
 ---
@@ -119,9 +120,10 @@ require_data(cfg)                            # DB 不存在則 st.stop
 | `tests/test_positions.py` | 位置對映各分支、未知位置回空字串 |
 | `tests/test_auction.py` | 估價替補水準 $1、star_premium 曲線、優化器預算/格位約束與最佳性、無解 raise |
 | `tests/test_projection.py` | 賽季字串運算、Marcel 向均值回歸方向、換隊旗標、ML 訓練/預測煙霧測試 |
+| `tests/test_factors.py` | 縮水賽季出勤率分母、健康分數加權/風險分級、新秀不受懲罰、角色標籤各分支（含 USG 缺值退回） |
 
-執行：`.venv\Scripts\python.exe -m pytest tests/ -v` — 最近一次：15 passed。
-`fetcher.py` 無自動化測試（外部 API），以實跑抽查代替（見 [05_processes.md](05_processes.md) §4）。
+執行：`.venv\Scripts\python.exe -m pytest tests/ -v` — 最近一次：21 passed。
+`fetcher.py` 無自動化測試（外部 API），以實跑抽查代替（見 [05_processes.md](Project_NBA/docs/05_processes.md) §4）。
 
 ---
 
@@ -135,6 +137,7 @@ require_data(cfg)                            # DB 不存在則 st.stop
 | 2026-07-05 | 擴充為多頁應用：新增球員比較、模擬選秀（$200 拍賣估價 + pulp ILP 陣容優化）、球員百科（NBA CDN 照片 + 歷年數據 + 人工備註檔）三頁；回補 2024-25、2023-24 歷史賽季；新依賴 `pulp`；10 測試通過，優化器實跑 0.7s 解出 $200/433FP 陣容 | `app/`（多頁重構 + common.py）、`src/auction.py`、`src/update_data.py`、`config/`（auction 設定 + player_notes.yaml） |
 | 2026-07-07 | 使用者回饋修正：比較頁改 FP metric 數值比對 + 六維百分位雷達圖（新依賴 `plotly`）；拍賣估價加 `star_premium` 冪次參數（預設 1.3，頂級球員 ~$80 貼近真實市場）；百科頁無備註球員附 Google 新聞/RotoWire 連結；11 測試通過 | `app/pages/1-3`、`src/auction.py`（estimate_prices 簽名新增 star_premium）、`config/config.yaml` |
 | 2026-07-08 | 預測功能上線：`player_stats` 加 `age`/`team` 欄（自動遷移）；回補 2005-06 起 21 季共 10,595 筆；`projection.py`（Marcel 基準 + 每項數據一個 HistGBM + 留出賽季回測）；回測結果 ML 全面最佳（2025-26：FP MAE 4.52 vs naive 5.04、rank corr 0.804）；新 `projections` 表存 2026-27 兩模型預測各 582 筆；看板/模擬選秀側欄可切換「實際 / Marcel / ML」排名依據；新依賴 `scikit-learn`；15 測試通過 | `src/db.py`、`src/projection.py`、`src/run_projection.py`、`src/backfill_history.py`、`app/common.py`、`app/draft_board.py`、`app/pages/2` |
+| 2026-07-13 | Phase 2 完成（健康度與角色定位）：新模組 `src/factors.py`（近三季出勤率加權健康分數 + 風險分級 + MIN/USG%/AST 角色標籤）；`player_stats` 加 `usg_pct`/`ts_pct` 欄（自動遷移），`fetch_advanced_stats` 由同 endpoint 的 Advanced 模式取得（每季 +1 次 API）；預測 gp 改為近三季加權（`projection._expected_gp`）；看板加健康分數/風險/角色欄，百科加健康度區塊、角色邏輯移入 factors（原頁內版本刪除）；規劃偏離：GS 不可得改用 MIN+USG proxy（05 §1）；抽查合理（Embiid 38.6 高風險 vs Bridges 99.6 低風險）；21 測試通過 | `src/factors.py`（新）、`src/fetcher.py`、`src/db.py`、`src/update_data.py`、`src/projection.py`、`app/common.py`、`app/draft_board.py`、`app/pages/3`、`tests/test_factors.py`（新） |
 
 ### 下次更新此文件時的檢查清單
 - [ ] `src/` / `app/` 有檔案增刪改名？→ 更新第 1 節

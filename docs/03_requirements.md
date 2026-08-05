@@ -1,6 +1,6 @@
 # Yahoo NBA Fantasy 選秀模擬器 — Phase 1 MVP 功能需求規格
 
-> 承接 [02_planning.md](02_planning.md) 的 Phase 1 範圍，本文件為可直接依此開發的詳細規格。
+> 承接 [02_planning.md](Project_NBA/docs/02_planning.md) 的 Phase 1 範圍，本文件為可直接依此開發的詳細規格。
 
 ## 1. 範圍重申
 

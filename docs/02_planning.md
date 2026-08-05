@@ -1,6 +1,6 @@
 # Yahoo NBA Fantasy 選秀模擬器 — 專案規劃
 
-> 承接 [01_value_proposition.md](01_value_proposition.md) 的範圍界定，本文件制定實作階段、MVP 定義與里程碑。文件結構比照 Project_finance 慣例。
+> 承接 [01_value_proposition.md](Project_NBA/docs/01_value_proposition.md) 的範圍界定，本文件制定實作階段、MVP 定義與里程碑。文件結構比照 Project_finance 慣例。
 
 ## 1. 階段劃分 (Phases)
 
@@ -51,11 +51,11 @@ Phase 1 就包含 Streamlit 介面 — 與 Project_finance 不同，本專案的
 - [ ] M1.5 Streamlit 介面：位置分頁 + 排名表 + 權重調整
 - [ ] M1.6 對照 NBA 官網抽查驗證，達成 DoD
 
-### Phase 2：健康度與角色定位
-- [ ] M2.1 回補過去 3 季出賽紀錄（GP/GS/MIN）
-- [ ] M2.2 健康風險指數計算邏輯（出勤率、傷病缺席趨勢）
-- [ ] M2.3 角色定位標籤（先發/替補、球權使用率、進攻發起 vs 藍領）
-- [ ] M2.4 介面整合：排名表加上健康/角色欄位
+### Phase 2：健康度與角色定位（2026-07-13 完成）
+- [x] M2.1 回補過去 3 季出賽紀錄（GP/MIN 已隨 21 季回補入庫；GS 不可得，見 05 文件差異記錄）
+- [x] M2.2 健康風險指數計算邏輯（近三季出勤率加權，`src/factors.py`）
+- [x] M2.3 角色定位標籤（MIN + USG% + AST 推導；USG% 來自 Advanced 進階數據）
+- [x] M2.4 介面整合：看板加健康分數/風險/角色欄位、百科加健康度區塊
 
 ### Phase 3：新秀分析與心態
 - [ ] M3.1 確認新秀 NCAA 資料來源（可行性研究）

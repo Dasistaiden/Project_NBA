@@ -26,6 +26,26 @@ def fetch_season_stats(season: str) -> pd.DataFrame:
     return df[list(STAT_RENAME)].rename(columns=STAT_RENAME)
 
 
+def fetch_advanced_stats(season: str) -> pd.DataFrame:
+    """全聯盟球員進階數據：使用率 USG%、真實命中率 TS%。
+
+    與 fetch_season_stats 同一個 endpoint，只是 measure_type 換成 Advanced。
+    """
+    df = leaguedashplayerstats.LeagueDashPlayerStats(
+        season=season, per_mode_detailed="PerGame",
+        measure_type_detailed_defense="Advanced",
+    ).get_data_frames()[0]
+    df = df[["PLAYER_ID", "USG_PCT", "TS_PCT"]].rename(columns={
+        "PLAYER_ID": "player_id", "USG_PCT": "usg_pct", "TS_PCT": "ts_pct",
+    })
+    # ponytail: stats.nba.com 的百分比量級不固定（0.28 或 28.0 皆出現過），統一成 0-100
+    if df["usg_pct"].max() <= 1:
+        df["usg_pct"] = df["usg_pct"] * 100
+    if df["ts_pct"].max() <= 1:
+        df["ts_pct"] = df["ts_pct"] * 100
+    return df
+
+
 def fetch_positions(season: str, delay: float = 0.6) -> pd.DataFrame:
     """30 隊 roster 的球員位置。單隊失敗重試 1 次，仍失敗則跳過（FR-6.1）。"""
     frames = []

@@ -55,8 +55,8 @@ Season, weights, position mapping, and auction settings live in `config/config.y
 - **Phase 3 — Rookies & intangibles**: NCAA-to-NBA production estimates for rookies; qualitative rating fields
 - **Phase 4 — Draft-day assistant**: mark drafted players, live best-available suggestions, interactive auction simulation
 
-See [02_planning.md](02_planning.md) for details.
+See [02_planning.md](docs/02_planning.md) for details.
 
 ## Design docs
 
-Full planning docs (value proposition → planning → requirements → architecture → process log → living code index) are at the repo root, files `01_*.md` – `06_*.md` (Traditional Chinese). Start at [`06_index.md`](06_index.md).
+Full planning docs (value proposition → planning → requirements → architecture → process log → living code index) live in `docs/`, files `01_*.md` – `06_*.md` (Traditional Chinese). Start at [`06_index.md`](docs/06_index.md).

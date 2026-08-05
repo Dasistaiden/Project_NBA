@@ -36,6 +36,7 @@ def run(season: str | None = None) -> None:
     conn = db.get_connection(str(BASE_DIR / cfg["db_path"]))
     db.upsert_players(conn, players)
     db.upsert_stats(conn, stats, season)
+    _fetch_advanced(conn, season, cfg)
     n_pos = (players["positions"] != "").sum()
     print(f"Done. {len(players)} players upserted, {n_pos} with mapped positions.")
 
@@ -45,7 +46,19 @@ def run(season: str | None = None) -> None:
         print(f"Backfilling {hist_season} per-game stats...")
         hist = fetcher.fetch_season_stats(hist_season)
         db.upsert_stats(conn, hist, hist_season)
+        _fetch_advanced(conn, hist_season, cfg)
         print(f"  {len(hist)} rows")
+
+
+def _fetch_advanced(conn, season: str, cfg: dict) -> None:
+    """補抓該季進階數據（USG%/TS%）。失敗只警告不中斷——基本數據已入庫，缺進階仍可用。"""
+    time.sleep(cfg["api_delay_seconds"])
+    try:
+        adv = fetcher.fetch_advanced_stats(season)
+        db.update_advanced(conn, adv, season)
+        print(f"  advanced stats: {len(adv)} rows")
+    except Exception as exc:
+        print(f"WARN: advanced stats failed for {season}: {exc}")
 
 
 if __name__ == "__main__":

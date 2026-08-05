@@ -16,11 +16,12 @@ min_gp = common.sidebar_min_gp(cfg)
 board = board[board["gp"] >= min_gp].copy()
 board["fantasy_point"] = compute_fantasy_points(board, weights)
 board["positions"] = board["positions"].replace("", "?")
+board = board.merge(common.load_phase2(), on="player_id", how="left")  # Phase 2：健康/角色
 
 DISPLAY_COLS = [
     c for c in [
-        "name", "team", "positions", "fantasy_point", "gp", "min",
-        "pts", "reb", "ast", "stl", "blk", "tov", "fg_pct", "fg3m", "ft_pct",
+        "name", "team", "positions", "fantasy_point", "health_score", "risk", "role",
+        "gp", "min", "pts", "reb", "ast", "stl", "blk", "tov", "fg_pct", "fg3m", "ft_pct",
     ] if c in board.columns
 ]
 

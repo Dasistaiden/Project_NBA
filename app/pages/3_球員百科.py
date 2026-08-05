@@ -1,6 +1,7 @@
-"""球員百科：照片、歷年數據、球隊定位、人工備註（狀況/媒體評價）。"""
+"""球員百科：照片、歷年數據、球隊定位、健康度、人工備註（狀況/媒體評價）。"""
 from urllib.parse import quote_plus
 
+import pandas as pd
 import yaml
 import streamlit as st
 
@@ -26,20 +27,8 @@ def load_notes() -> dict:
     return {}
 
 
-def role_label(row) -> str:
-    """ponytail: 純場均數據啟發式；Phase 2 引入先發場次/USG% 後再細化"""
-    if row["min"] >= 32 and row["ast"] >= 6:
-        return "核心主力・主要進攻發起者"
-    if row["min"] >= 32:
-        return "核心主力"
-    if row["min"] >= 25:
-        if row["pts"] < 12 and (row["reb"] + row["blk"]) >= 9:
-            return "先發・藍領內線"
-        return "先發 / 主要輪換"
-    if row["min"] >= 15:
-        return "輪換球員"
-    return "邊緣 / 深度替補"
-
+# Phase 2：角色邏輯移到 src/factors.py（加入 USG% 判斷），此處只 import
+from factors import role_label  # noqa: E402
 
 st.title("球員百科")
 
@@ -61,6 +50,16 @@ with col_info:
     c1.metric("Fantasy Point", f"{player['fantasy_point']:.1f}")
     c2.metric("球隊定位", role_label(player))
     c3.metric("出賽", f"{player['gp']:.0f} 場")
+
+# Phase 2：健康度
+phase2 = common.load_phase2()
+mine = phase2[phase2["player_id"] == player["player_id"]]
+if not mine.empty and pd.notna(mine.iloc[0]["health_score"]):
+    h = mine.iloc[0]
+    st.subheader("健康度（近三季出勤加權）")
+    c1, c2 = st.columns(2)
+    c1.metric("健康分數", f"{h['health_score']:.0f} / 100")
+    c2.metric("風險等級", h["risk"])
 
 st.subheader("年度數據")
 history = common.load_stats_history()
