@@ -2,7 +2,11 @@
 import time
 
 import pandas as pd
-from nba_api.stats.endpoints import commonteamroster, leaguedashplayerstats
+from nba_api.stats.endpoints import (
+    commonteamroster,
+    leaguedashplayerstats,
+    playergamelogs,
+)
 from nba_api.stats.static import teams
 
 # LeagueDashPlayerStats 欄位 -> player_stats/players 欄位
@@ -44,6 +48,42 @@ def fetch_advanced_stats(season: str) -> pd.DataFrame:
     if df["ts_pct"].max() <= 1:
         df["ts_pct"] = df["ts_pct"] * 100
     return df
+
+
+# PlayerGameLogs 欄位 -> game_logs 欄位（不取 *_PCT，見 db.py DDL 註解）
+GAMELOG_RENAME = {
+    "PLAYER_ID": "player_id", "GAME_ID": "game_id", "GAME_DATE": "game_date",
+    "TEAM_ABBREVIATION": "team", "MIN": "min",
+    "PTS": "pts", "REB": "reb", "AST": "ast",
+    "STL": "stl", "BLK": "blk", "TOV": "tov",
+    "FGM": "fgm", "FGA": "fga", "FG3M": "fg3m", "FG3A": "fg3a",
+    "FTM": "ftm", "FTA": "fta",
+}
+
+
+def fetch_game_logs(season: str, date_from: str | None = None) -> pd.DataFrame:
+    """全聯盟逐場 box score。date_from（'YYYY-MM-DD'）之後的比賽，None 代表整季。
+
+    一次呼叫拿全聯盟，不需要逐球員迴圈——這是能做每日更新的關鍵。
+    """
+    df = playergamelogs.PlayerGameLogs(
+        season_nullable=season,
+        date_from_nullable=_api_date(date_from),
+        # 不指定的話季後賽也會混進來；fantasy 聯盟只跑例行賽
+        season_type_nullable="Regular Season",
+    ).get_data_frames()[0]
+    df = df[list(GAMELOG_RENAME)].rename(columns=GAMELOG_RENAME)
+    # API 回傳 '2025-10-22T00:00:00'，只留日期部分
+    df["game_date"] = df["game_date"].str[:10]
+    return df
+
+
+def _api_date(iso_date: str | None) -> str:
+    """'2025-10-22' -> '10/22/2025'（stats.nba.com 的日期格式）。None -> 空字串。"""
+    if not iso_date:
+        return ""
+    y, m, d = iso_date.split("-")
+    return f"{m}/{d}/{y}"
 
 
 def fetch_positions(season: str, delay: float = 0.6) -> pd.DataFrame:

@@ -1,5 +1,6 @@
 """SQLite 連線、schema、upsert、查詢。對應 04_architecture.md §3-4。"""
 import sqlite3
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -40,6 +41,34 @@ CREATE TABLE IF NOT EXISTS projections (
     updated_at  DATETIME NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (player_id, season, model)
 );
+
+-- 逐場 box score（賽季中的每日更新、滾動窗口排行用）
+-- 刻意不存 fg_pct/ft_pct：窗口命中率必須是 SUM(fgm)/SUM(fga)，
+-- 存了每場的百分比遲早有人拿去平均，那是錯的。
+CREATE TABLE IF NOT EXISTS game_logs (
+    player_id   INTEGER NOT NULL,
+    game_id     TEXT    NOT NULL,
+    game_date   TEXT    NOT NULL,   -- 'YYYY-MM-DD'，字串比較即可做區間查詢
+    season      TEXT    NOT NULL,
+    team        TEXT,               -- 該場所屬球隊（賽季中被交易會變）
+    min  REAL,
+    pts  REAL, reb REAL, ast REAL, stl REAL, blk REAL, tov REAL,
+    fgm  REAL, fga REAL,
+    fg3m REAL, fg3a REAL,
+    ftm  REAL, fta REAL,
+    updated_at  DATETIME NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (player_id, game_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_logs_window
+    ON game_logs (season, game_date);
+
+-- 聯盟裡誰擁有誰。沒有列 = 自由球員（不另外存自由球員名單）
+CREATE TABLE IF NOT EXISTS rosters (
+    player_id   INTEGER NOT NULL PRIMARY KEY,
+    league_team TEXT    NOT NULL,
+    updated_at  DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 PLAYER_COLS = ["player_id", "name", "team", "age", "nba_position", "positions"]
@@ -49,6 +78,11 @@ STAT_COLS = [
     "fgm", "fga", "fg_pct", "fg3m", "fg3a", "fg3_pct", "ftm", "fta", "ft_pct",
 ]
 PROJ_COLS = ["player_id", "pts", "reb", "ast", "stl", "blk", "tov", "min", "gp"]
+GAME_LOG_COLS = [
+    "player_id", "game_id", "game_date", "team", "min",
+    "pts", "reb", "ast", "stl", "blk", "tov",
+    "fgm", "fga", "fg3m", "fg3a", "ftm", "fta",
+]
 
 
 def get_connection(db_path: str) -> sqlite3.Connection:
@@ -105,6 +139,57 @@ def update_advanced(conn: sqlite3.Connection, df: pd.DataFrame, season: str) -> 
         rows,
     )
     conn.commit()
+
+
+def upsert_game_logs(conn: sqlite3.Connection, df: pd.DataFrame, season: str) -> None:
+    """寫入逐場 box score。以 (player_id, game_id) 為鍵，重抓同一天不會重複。"""
+    cols = GAME_LOG_COLS + ["season"]
+    df = df.assign(season=season)
+    rows = df[cols].itertuples(index=False, name=None)
+    conn.executemany(
+        f"INSERT OR REPLACE INTO game_logs ({','.join(cols)}) "
+        f"VALUES ({','.join('?' * len(cols))})",
+        rows,
+    )
+    conn.commit()
+
+
+def last_game_date(conn: sqlite3.Connection, season: str) -> str | None:
+    """已入庫的最後一場比賽日期，增量更新的起點。無資料回傳 None。"""
+    return conn.execute(
+        "SELECT MAX(game_date) FROM game_logs WHERE season = ?", (season,)
+    ).fetchone()[0]
+
+
+def load_window(
+    conn: sqlite3.Connection, season: str, days: int = 14, end_date: str | None = None
+) -> pd.DataFrame:
+    """近 N 天的場均數據（動態排行用）。end_date 預設為庫中最後一場比賽日。
+
+    命中率用 SUM(makes)/SUM(attempts) 而非每場百分比的平均——後者會讓
+    出手兩次進一球的替補看起來像神射手。
+    """
+    end = end_date or last_game_date(conn, season) or ""
+    # 無資料時 start=end="" 讓查詢自然落空，仍回傳帶正確欄位的空表
+    start = "" if not end else (
+        date.fromisoformat(end) - timedelta(days=days - 1)
+    ).isoformat()
+    return pd.read_sql_query(
+        """
+        SELECT g.player_id, p.name, p.team, p.positions,
+               COUNT(*) AS gp,
+               AVG(g.min) AS min, AVG(g.pts) AS pts, AVG(g.reb) AS reb,
+               AVG(g.ast) AS ast, AVG(g.stl) AS stl, AVG(g.blk) AS blk,
+               AVG(g.tov) AS tov, AVG(g.fg3m) AS fg3m,
+               SUM(g.fgm) / NULLIF(SUM(g.fga), 0) AS fg_pct,
+               SUM(g.ftm) / NULLIF(SUM(g.fta), 0) AS ft_pct
+        FROM game_logs g JOIN players p ON p.player_id = g.player_id
+        WHERE g.season = ? AND g.game_date BETWEEN ? AND ?
+        GROUP BY g.player_id
+        """,
+        conn,
+        params=(season, start, end),
+    )
 
 
 def upsert_projections(
