@@ -107,6 +107,27 @@ def sidebar_weights(cfg: dict) -> dict:
     }
 
 
+def sidebar_slots(cfg: dict) -> list:
+    """側欄設定各格位數量，回傳展開後的格位清單（如 [PG, G, C, C, UTIL...]）。
+
+    陣容人數依聯盟規則而異，不是固定 13 人；config 的 roster_slots 只當預設值。
+    """
+    default = cfg["auction"]["roster_slots"]
+    st.sidebar.header("陣容格位")
+    slots = [
+        slot
+        for slot in cfg["slot_eligibility"]
+        for _ in range(st.sidebar.number_input(
+            slot, 0, 10, default.count(slot), key=f"slot_{slot}"
+        ))
+    ]
+    if not slots:
+        st.sidebar.error("至少要設定一個格位")
+        st.stop()
+    st.sidebar.caption(f"合計 {len(slots)} 人")
+    return slots
+
+
 def sidebar_min_gp(cfg: dict) -> int:
     st.sidebar.header("過濾")
     return st.sidebar.slider("最低出賽場次", 0, 82, cfg["min_games_default"])

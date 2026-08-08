@@ -22,7 +22,7 @@ star_premium = st.sidebar.slider(
     help="模擬真實市場：越高則頂級球員越貴、中後段越接近 $1。1.0 = 純線性估價",
 )
 
-slots = cfg["auction"]["roster_slots"]
+slots = common.sidebar_slots(cfg)
 
 # 只用有位置對映且達最低出賽的球員估價
 pool = board[(board["gp"] >= min_gp) & (board["positions"] != "")].copy()
@@ -40,8 +40,9 @@ st.caption(
 
 if st.button("計算最佳陣容", type="primary"):
     with st.spinner("求解中..."):
-        # ponytail: 只取前 250 名餵優化器，其餘不可能入選；降低 ILP 規模
-        candidates = pool.nlargest(250, "fantasy_point")
+        # ponytail: 只取「全聯盟會被選走的人數」餵優化器，其餘不可能入選；
+        # 隨陣容人數縮放，否則大陣容聯盟會把可行解切掉
+        candidates = pool.nlargest(max(250, teams * len(slots)), "fantasy_point")
         try:
             roster = optimize_roster(candidates, slots, cfg["slot_eligibility"], budget)
         except ValueError as exc:

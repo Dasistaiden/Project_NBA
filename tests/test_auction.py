@@ -27,6 +27,17 @@ def test_prices_replacement_level_is_one_dollar():
     assert (prices >= 1).all()
 
 
+def test_bigger_roster_spreads_budget_and_cheapens_stars():
+    """陣容人數是聯盟變數。人數越多替補水準越低（VOR 變大），但同樣的錢要攤到
+    更多名單位，後者壓倒前者——深聯盟的頂級球員反而便宜，錢得留給填滿板凳。"""
+    fp = pd.Series(range(50, 0, -1), dtype=float)
+    small = estimate_prices(fp, budget=100, teams=4, roster_size=2)
+    big = estimate_prices(fp, budget=100, teams=4, roster_size=8)
+    assert big.iloc[0] < small.iloc[0]
+    assert (big > 1).sum() > (small > 1).sum()   # 深聯盟有更多人值得花錢
+    assert (big >= 1).all()
+
+
 def test_optimizer_respects_budget_and_slots():
     df = pd.DataFrame([
         {"name": "StarG", "positions": "PG,SG", "fantasy_point": 60.0, "price": 50},
