@@ -6,3 +6,4 @@ pulp
 pytest
 plotly
 scikit-learn
+openpyxl

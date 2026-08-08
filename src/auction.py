@@ -31,9 +31,15 @@ def estimate_prices(
 
 
 def optimize_roster(
-    df: pd.DataFrame, slots: list, eligibility: dict, budget: int
+    df: pd.DataFrame, slots: list, eligibility: dict, budget: int,
+    bench_weight: float = 1.0,
 ) -> pd.DataFrame:
     """求最佳陣容。df 需含 name, positions, fantasy_point, price 欄。
+
+    bench_weight 是 `BN` 格位球員在目標函式中的計分比例。板凳不上場就不得分，
+    全額計入會高估「湊深度」的價值、把錢從先發推向板凳。0 = 完全不計，
+    1.0 = 維持舊行為（呼叫端不指定時不改變既有結果）。
+    合理值是個判斷題（板凳仍有傷兵替補價值），所以放在 config 而非寫死。
 
     回傳選中球員（含 slot 欄），依 slots 順序排列。
     無可行解（預算/格位過緊）時 raise ValueError。
@@ -47,7 +53,12 @@ def optimize_roster(
                 x[(i, s)] = pulp.LpVariable(f"x_{i}_{s}", cat="Binary")
 
     prob = pulp.LpProblem("auction_roster", pulp.LpMaximize)
-    prob += pulp.lpSum(players.at[i, "fantasy_point"] * v for (i, _), v in x.items())
+    prob += pulp.lpSum(
+        players.at[i, "fantasy_point"]
+        * (bench_weight if slots[s] == "BN" else 1.0)
+        * v
+        for (i, s), v in x.items()
+    )
     for s in range(len(slots)):
         prob += pulp.lpSum(v for (i, s2), v in x.items() if s2 == s) == 1
     for i in players.index:

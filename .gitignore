@@ -4,6 +4,11 @@ __pycache__/
 data/*.db
 .pytest_cache/
 
+# 含聯盟成員姓名的私人資料，不進公開 repo（註解必須自成一行，不能寫在 pattern 後面）
+data/*.xlsx
+# Excel 開檔時產生的鎖定檔
+~$*
+
 # 個人筆記，不進公開 repo
 Review筆記.md
 學習提問.md

@@ -55,6 +55,37 @@ def test_optimizer_respects_budget_and_slots():
     assert roster["fantasy_point"].sum() == 105.0
 
 
+def test_bench_weight_moves_money_to_starters():
+    """板凳不上場不得分。折算後，預算應該從板凳流向先發格位。
+
+    兩個 C：貴的強、便宜的弱。預算只夠讓其中一個格位買貴的。
+    板凳全額計分時，優化器對兩個格位一視同仁；折算後必須把貴的放先發。
+    """
+    df = pd.DataFrame([
+        {"name": "GoodC", "positions": "C", "fantasy_point": 50.0, "price": 30},
+        {"name": "OkC", "positions": "C", "fantasy_point": 40.0, "price": 10},
+    ])
+    slots, elig = ["C", "BN"], {"C": ["C"], "BN": ["C"]}
+
+    discounted = optimize_roster(df, slots, elig, budget=40, bench_weight=0.0)
+    starter = discounted[discounted["slot"] == "C"].iloc[0]
+    assert starter["name"] == "GoodC"      # 只有先發計分，強的必須在先發
+    # 板凳完全不計分時，目標函式只剩先發那 50 分
+    assert discounted[discounted["slot"] == "C"]["fantasy_point"].sum() == 50.0
+
+
+def test_bench_weight_defaults_to_old_behaviour():
+    """未指定 bench_weight 時結果與舊版相同——不能悄悄改變既有呼叫端。"""
+    df = pd.DataFrame([
+        {"name": "A", "positions": "C", "fantasy_point": 50.0, "price": 30},
+        {"name": "B", "positions": "C", "fantasy_point": 40.0, "price": 10},
+    ])
+    slots, elig = ["C", "BN"], {"C": ["C"], "BN": ["C"]}
+    default = optimize_roster(df, slots, elig, budget=40)
+    explicit = optimize_roster(df, slots, elig, budget=40, bench_weight=1.0)
+    assert set(default["name"]) == set(explicit["name"]) == {"A", "B"}
+
+
 def test_optimizer_infeasible_raises():
     df = pd.DataFrame([
         {"name": "OnlyG", "positions": "PG", "fantasy_point": 10.0, "price": 99},

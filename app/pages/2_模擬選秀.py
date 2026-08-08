@@ -20,6 +20,11 @@ budget = st.sidebar.number_input(
     help="優化器可花的錢。估價本身用聯盟標準預算計算，不受此值影響。",
 )
 slots = common.sidebar_slots(cfg)
+bench_weight = st.sidebar.slider(
+    "板凳計分比例", 0.0, 1.0, float(cfg["auction"]["bench_weight"]), 0.1,
+    help="板凳（BN 格位）球員不上場就不得分，全額計入會讓優化器把錢花在湊深度上。"
+         "0 = 完全不計，1.0 = 板凳與先發同等看待。",
+)
 
 # 只用有位置對映且達最低出賽的球員估價
 pool = board[(board["gp"] >= min_gp) & (board["positions"] != "")].copy()
@@ -41,7 +46,9 @@ if st.button("計算最佳陣容", type="primary"):
         # 隨陣容人數縮放，否則大陣容聯盟會把可行解切掉
         candidates = pool.nlargest(max(250, teams * len(slots)), "fantasy_point")
         try:
-            roster = optimize_roster(candidates, slots, cfg["slot_eligibility"], budget)
+            roster = optimize_roster(
+                candidates, slots, cfg["slot_eligibility"], budget, bench_weight
+            )
         except ValueError as exc:
             st.error(str(exc))
             st.stop()
