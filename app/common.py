@@ -98,33 +98,54 @@ def load_phase2() -> pd.DataFrame:
 
 
 def sidebar_weights(cfg: dict) -> dict:
+    """各項數據的 Fantasy Point 權重。Yahoo 的計分規則多以 0.5 為級距。"""
     st.sidebar.header("權重設定")
     return {
         stat: st.sidebar.number_input(
-            stat.upper(), value=float(w), step=0.1, format="%.2f"
+            stat.upper(), value=float(w), step=0.5, format="%.1f"
         )
         for stat, w in cfg["weights"].items()
     }
 
 
+def sidebar_auction(cfg: dict) -> tuple:
+    """拍賣制的聯盟設定，回傳 (隊伍數, 巨星溢價)。"""
+    st.sidebar.header("聯盟設定")
+    teams = st.sidebar.number_input(
+        "聯盟隊伍數", 4, 20, cfg["auction"]["league_teams"],
+        help="幾支隊伍一起選秀（不是每隊幾個球員）。隊伍越多，可選球員被瓜分得越細，"
+             "替補水準越低。",
+    )
+    star_premium = st.sidebar.slider(
+        "巨星溢價", 1.0, 2.5, float(cfg["auction"]["star_premium"]), 0.1,
+        help="估價曲線的陡度，不影響總金額、只影響怎麼分配。"
+             "1.0 = 純線性（價值兩倍就標價兩倍）；越高則頂級球員估得越貴、"
+             "中後段被壓向 $1，貼近真實拍賣中大家搶星的行為。",
+    )
+    return teams, star_premium
+
+
 def sidebar_slots(cfg: dict) -> list:
     """側欄設定各格位數量，回傳展開後的格位清單（如 [PG, G, C, C, UTIL...]）。
 
-    陣容人數依聯盟規則而異，不是固定 13 人；config 的 roster_slots 只當預設值。
+    每隊人數依聯盟規則而異（常見 10-14 人），config 的 roster_slots 只當預設值。
+    收在 expander 裡，標題直接顯示總人數——多數時候只需要知道總數。
     """
     default = cfg["auction"]["roster_slots"]
-    st.sidebar.header("陣容格位")
-    slots = [
-        slot
-        for slot in cfg["slot_eligibility"]
-        for _ in range(st.sidebar.number_input(
-            slot, 0, 10, default.count(slot), key=f"slot_{slot}"
-        ))
-    ]
+    n_now = st.session_state.get("_slot_total", len(default))
+    with st.sidebar.expander(f"每隊球員數：{n_now} 人（點開調整格位）"):
+        st.caption("各位置要幾個格位。UTIL 任何位置可填，BN 是板凳。")
+        slots = [
+            slot
+            for slot in cfg["slot_eligibility"]
+            for _ in range(st.number_input(
+                slot, 0, 10, default.count(slot), key=f"slot_{slot}"
+            ))
+        ]
     if not slots:
         st.sidebar.error("至少要設定一個格位")
         st.stop()
-    st.sidebar.caption(f"合計 {len(slots)} 人")
+    st.session_state["_slot_total"] = len(slots)
     return slots
 
 

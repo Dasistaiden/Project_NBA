@@ -14,14 +14,11 @@ board, source_label = common.select_board(cfg)
 weights = common.sidebar_weights(cfg)
 min_gp = common.sidebar_min_gp(cfg)
 
-st.sidebar.header("拍賣設定")
-budget = st.sidebar.number_input("我的總預算 ($)", 50, 500, cfg["auction"]["budget"])
-teams = st.sidebar.number_input("聯盟隊伍數", 8, 20, cfg["auction"]["league_teams"])
-star_premium = st.sidebar.slider(
-    "巨星溢價", 1.0, 2.5, float(cfg["auction"]["star_premium"]), 0.1,
-    help="模擬真實市場：越高則頂級球員越貴、中後段越接近 $1。1.0 = 純線性估價",
+teams, star_premium = common.sidebar_auction(cfg)
+budget = st.sidebar.number_input(
+    "我的總預算 ($)", 50, 500, cfg["auction"]["budget"],
+    help="優化器可花的錢。估價本身用聯盟標準預算計算，不受此值影響。",
 )
-
 slots = common.sidebar_slots(cfg)
 
 # 只用有位置對映且達最低出賽的球員估價

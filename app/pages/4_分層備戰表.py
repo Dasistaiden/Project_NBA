@@ -19,11 +19,7 @@ board, source_label = common.select_board(cfg)
 weights = common.sidebar_weights(cfg)
 min_gp = common.sidebar_min_gp(cfg)
 
-st.sidebar.header("拍賣設定")
-teams = st.sidebar.number_input("聯盟隊伍數", 8, 20, cfg["auction"]["league_teams"])
-star_premium = st.sidebar.slider(
-    "巨星溢價", 1.0, 2.5, float(cfg["auction"]["star_premium"]), 0.1
-)
+teams, star_premium = common.sidebar_auction(cfg)
 slots = common.sidebar_slots(cfg)
 
 pool = board[(board["gp"] >= min_gp) & (board["positions"] != "")].copy()
